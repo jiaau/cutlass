@@ -1,6 +1,8 @@
 #pragma once
 
+#include <stdio.h>
 #include <type_traits>
+#include "cute/util/print.hpp"
 
 template <typename... Ts>
 void debug_types() {
@@ -40,4 +42,14 @@ void debug_simultaneously(Displayers... displayers) {
     ( [](auto T) {
         static_assert(decltype(T)::this_will_fail, "Debugging...");
     }(displayers), ... );
+}
+
+template <typename Layout>
+void print_1d_layout(Layout layout) {
+    cute::print(layout);
+    puts("");
+    for (int i = 0; i < size(layout); i++) {
+        cute::print(layout(i));
+        printf(" ");
+    }
 }
