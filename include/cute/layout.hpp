@@ -39,6 +39,9 @@
 #include <cute/numeric/integral_ratio.hpp>
 #include <cute/numeric/numeric_types.hpp>  // cute::sizeof_bits
 
+#include "../../debug_utils.hpp"
+
+
 namespace cute
 {
 
@@ -261,6 +264,21 @@ struct Layout
   CUTE_HOST_DEVICE constexpr
   auto
   get_flat_coord(IInt const& idx) const {
+    // print(idx);
+    // 31
+    // 0 1 2 3 16 17 18 19 8 9 10 11 24 25 26 27 4 5 6 7 20 21 22 23 12 13 14 15 28 29 30 31
+    // 4:1, 2:16, 2:8, 2:4
+    // print(this->get_hier_coord(idx));
+    // ((3,1),1,1,_0)
+    // 31 = 3 * 1 + 1 * 16 + 1 * 8 + 1 * 4
+    // puts("shape");
+    // print(shape()); puts("");
+    // ((_4,_2),_2,_2,_1)
+    // puts("repeat<rank>(Int<1>)");
+    // print(repeat<rank>(Int<1>{})); puts("");
+    // (_1,_1,_1,_1)
+    // print(cute::crd2crd(this->get_hier_coord(idx), shape(), repeat<rank>(Int<1>{})));
+    // (7,1,1,_0)
     return cute::crd2crd(this->get_hier_coord(idx), shape(), repeat<rank>(Int<1>{}));
   }
 

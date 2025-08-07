@@ -32,6 +32,6 @@ int main() {
                        Layout<Shape<_2, _2>, Stride<_2, _1>>{}); // 2x2 n-major layout of Atoms
 
     // get MMA tile for each thread
-    auto thr_mma = tiled_mma.get_slice(16);
+    auto thr_mma = tiled_mma.get_slice(31);
     auto tCrD = thr_mma.partition_fragment_C(gD); // (MMA, MMA_M, MMA_N)
 }
