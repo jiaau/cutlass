@@ -29,7 +29,7 @@
  *
  **************************************************************************************************/
 #pragma once
-
+#include "../../../debug_utils.hpp"
 #include <cute/config.hpp>
 #include <cute/arch/mma.hpp>
 #include <cute/atom/mma_traits.hpp>
@@ -228,7 +228,14 @@ struct TiledMMA : MMA_Atom
   CUTE_HOST_DEVICE constexpr
   TiledMMA(MMA_Atom const& mma_atom = {}, AtomLayoutMNK const& thr_layout_mnk = {})
     : MMA_Atom(mma_atom),
-      thr_layout_vmnk_(tiled_product(AtomThrID{}, thr_layout_mnk)) {}
+      thr_layout_vmnk_(tiled_product(AtomThrID{}, thr_layout_mnk)) {
+        // debug_types<AtomThrID, decltype(thr_layout_mnk), ThrLayoutVMNK>();
+        // AtomThrID: SM70_QuadPair (4, 1) : (1, 16)
+        // decltype(thr_layout_mnk): (2, 2, 1) : (2, 1, 0)
+        // ThrLayoutVMNK: ((4, 2), 2, 2, 1) : ((1, 16), 8, 4, 0)
+        // print_1d_layout(ThrLayoutVMNK{});
+        // 0 1 2 3 16 17 18 19 8 9 10 11 24 25 26 27 4 5 6 7 20 21 22 23 12 13 14 15 28 29 30 31
+      }
 
   CUTE_HOST_DEVICE constexpr auto
   get_thr_layout_vmnk() const {
@@ -358,7 +365,10 @@ struct TiledMMA : MMA_Atom
   auto
   get_slice(ThrIdx const& thr_idx) const
   {
+    // thr_idx = 16
     auto thr_vmnk = thr_layout_vmnk_.get_flat_coord(thr_idx);
+    // print(thr_vmnk);
+    // (4, 0, 0, 0)
     return ThrMMA<TiledMMA, decltype(thr_vmnk)>{*this, thr_vmnk};
   }
 
@@ -579,6 +589,8 @@ make_tiled_mma(MMA_Atom<MMA_Op> const& mma_atom,
                Permutations     const& permutations = {})
 {
   auto thr_layout_mnk  = append<3>(thr_layout, Layout<_1,_0>{});
+  // debug_types<decltype(thr_layout_mnk)>();
+  // (2, 2, 1) : (2, 1, 0)
   auto permutation_mnk = append<3>(permutations, _);
 
   return TiledMMA<MMA_Atom<MMA_Op>,
