@@ -258,24 +258,44 @@ struct TiledMMA : MMA_Atom
   auto
   thrfrg_C(CTensor&& ctensor) const
   {
+    // NOTE: 这个函数的除了 Transform 这一步使用了 AtomLayoutC_TV，其他都只涉及了形状的计算，不涉及 stride
+
+    // CTA Layout:
+    // print(ctensor.layout());
+    // (_16,_16):(16,_1)
     CUTE_STATIC_ASSERT_V(rank(ctensor) >= Int<2>{});
     // Reorder the tensor for the TiledAtom
     auto t_tile = make_tile(permutation_mnk<0>(),
                             permutation_mnk<1>());
+    // get TiledMMA size
+    // print(t_tile);
+    // (_16,_16)
     auto t_tensor = logical_divide(ctensor, t_tile);                 // (PermM,PermN)
-
+    // t_tile 每个维度都会当作stride为1的layout
+    // print(t_tensor);
+    // ((_16,_1),(_16,_1)):((16,_0),(_1,_0))
+    // 结果中第一维度为除数Layout的大小，根据其中的Layout数值从被除数中取值作为输出的结果。(A o B) 得到第一个 Tile
+    // 通过重复"第一个Tile"来填满了Layout A中所有的数据 (A o B, A o C)
+    
+    
     // Tile the tensor for the Atom
     auto c_tile = make_tile(make_layout(size<0>(AtomShape_MNK{})),
-                            make_layout(size<1>(AtomShape_MNK{})));
+    make_layout(size<1>(AtomShape_MNK{})));
+    // print(c_tile);
+    // (_8:_1,_8:_1)
+    // 为什么要先执行一次 logical_divide?
     auto c_tensor = zipped_divide(t_tensor, c_tile);                 // ((AtomM,AtomN),(RestM,RestN))
 
     // Transform the Atom mode from (M,K) to (Thr,Val)
     auto tv_tensor = c_tensor.compose(AtomLayoutC_TV{},_);           // ((ThrV,FrgV),(RestM,RestN))
 
     // Tile the tensor for the C-threads
+    // ThrLayoutVMNK: ((4, 2), 2, 2, 1) : ((1, 16), 8, 4, 0)
     auto thr_tile = make_tile(_,
                               make_tile(make_layout(size<1>(thr_layout_vmnk_)),
                                         make_layout(size<2>(thr_layout_vmnk_))));
+    // print(thr_tile);
+    // (_,(_2:_1,_2:_1))
     auto thr_tensor = zipped_divide(tv_tensor, thr_tile);            // ((ThrV,(ThrM,ThrN)),(FrgV,(RestM,RestN)))
 
     return thr_tensor;
@@ -365,8 +385,10 @@ struct TiledMMA : MMA_Atom
   auto
   get_slice(ThrIdx const& thr_idx) const
   {
+    // Mapping from (thread idx) -> (logical thread id)
     // thr_idx = 16
     auto thr_vmnk = thr_layout_vmnk_.get_flat_coord(thr_idx);
+    // 0 1 2 3 16 17 18 19 8 9 10 11 24 25 26 27 4 5 6 7 20 21 22 23 12 13 14 15 28 29 30 31
     // print(thr_vmnk);
     // (4, 0, 0, 0)
     return ThrMMA<TiledMMA, decltype(thr_vmnk)>{*this, thr_vmnk};
@@ -522,9 +544,20 @@ struct ThrMMA : TiledMMA
   auto
   partition_C(CTensor&& ctensor) const
   {
-    auto thr_tensor = make_tensor(static_cast<CTensor&&>(ctensor).data(), this->thrfrg_C(ctensor.layout()));
+    // print(ctensor.layout());
+    // (_16,_16):(16,_1)
 
+    auto thr_tensor = make_tensor(static_cast<CTensor&&>(ctensor).data(), this->thrfrg_C(ctensor.layout()));
+    // ((ThrV,(ThrM,ThrN)),(FrgV,(RestM,RestN)))
+
+    // thread-wise partition
     auto thr_vmn = make_coord(get<0>(thr_vmnk_), make_coord(get<1>(thr_vmnk_), get<2>(thr_vmnk_)));
+    // print(thr_vmn);
+    // (4, (0, 0))
+    // print(rank<1,1>(thr_tensor));
+    // _2
+    // print(thr_tensor(thr_vmn, make_coord(_, repeat<rank<1,1>(thr_tensor)>(_))));
+    //  ((_2,_2,_2),_1,_1):((_1,32,_4),_0,_0)
     return thr_tensor(thr_vmn, make_coord(_, repeat<rank<1,1>(thr_tensor)>(_)));
   }
 
