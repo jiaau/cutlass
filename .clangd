@@ -1,0 +1,4 @@
+CompileFlags:
+  Add:
+    - -I/usr/local/cuda/include
+    - -I/data/solution-sdk/jiaao1/kernels-workspace/cutlass/include

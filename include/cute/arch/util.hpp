@@ -32,6 +32,7 @@
 
 #include <cute/config.hpp>
 #include <cute/numeric/integer_sequence.hpp>
+#include "/data/solution-sdk/jiaao1/kernels-workspace/cutlass/debug_utils.hpp"
 
 #if defined(__clang__) && defined(__CUDA__)
   //  __cvta_generic_to_shared was added in Clang 14: https://reviews.llvm.org/D111665
@@ -212,6 +213,13 @@ explode(Fn fn,
         PtrB&& b, int_sequence<Ib...>,
         PtrC&& c, int_sequence<Ic...>)
 {
+  // debug_types<Fn>();
+  // fma(uint32_t      & d0, uint32_t      & d1,
+  //     uint32_t const& a0, uint32_t const& a1, uint32_t const& a2, uint32_t const& a3,
+  //     uint32_t const& b0, uint32_t const& b1,
+  //     uint32_t const& c0, uint32_t const& c1)
+  // debug_constexpr<Ia...>();
+  // 0, 1, 2, 3
   return fn(d[Id]..., a[Ia]..., b[Ib]..., c[Ic]...);
 }
 

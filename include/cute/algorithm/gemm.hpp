@@ -39,6 +39,8 @@
 
 #include <cute/atom/mma_atom.hpp>
 
+#include "/data/solution-sdk/jiaao1/kernels-workspace/cutlass/debug_utils.hpp"
+
 /** The gemm algorithm takes four (or three) tensors and computes
  *   D = A * B + C
  * It dispatches based on the number of modes each tensor has:
@@ -193,6 +195,13 @@ gemm(MMA_Atom<MMA>       const& mma,
      Tensor<TB, BLayout> const& B,  // (V) Logical data
      Tensor<TC, CLayout> const& C)  // (V) Logical data
 {
+  COMPILE_TIME_PRINT("Hello from compile time!");
+  // debug_types<decltype(mma), bool, decltype(D), bool, decltype(A), bool, decltype(B), bool, decltype(C)>();
+  // mma SM80_16x8x16_F16F16F16F16_TN>
+  // D (2, 2) : (1, 2)
+  // A (2, 2, 2) : (1, 2, 4)
+  // B (2, 2) : (1, 2)
+  // C (2, 2) : (1, 2)
   // No static assertions on (V), MMA checks compatibility
   mma.call(D, A, B, C);
 }

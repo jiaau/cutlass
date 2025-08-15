@@ -35,6 +35,7 @@
 #include <cute/arch/mma.hpp>     // cute::UniversalFMA
 #include <cute/arch/util.hpp>    // cute::detail::explode
 
+#include "/data/solution-sdk/jiaao1/kernels-workspace/cutlass/debug_utils.hpp"
 namespace cute
 {
 
@@ -127,6 +128,12 @@ mma_unpack(AnyMMATraits        const& traits,
   using RegTypeA = typename remove_extent<typename MMA_Op::ARegisters>::type;
   using RegTypeB = typename remove_extent<typename MMA_Op::BRegisters>::type;
   using RegTypeC = typename remove_extent<typename MMA_Op::CRegisters>::type;
+  // debug_types<MMA_Op, bool, RegTypeD, bool, RegTypeA, bool, RegTypeB, bool, RegTypeC>();
+  // SM80_16x8x16_F16F16F16F16_TN
+  // uint32_t
+  // uint32_t
+  // uint32_t
+  // uint32_t
 
   Tensor rA = recast<RegTypeA>(A);
   Tensor rB = recast<RegTypeB>(B);
@@ -137,6 +144,11 @@ mma_unpack(AnyMMATraits        const& traits,
   constexpr int RegNumA = extent<typename MMA_Op::ARegisters>::value;
   constexpr int RegNumB = extent<typename MMA_Op::BRegisters>::value;
   constexpr int RegNumC = extent<typename MMA_Op::CRegisters>::value;
+  // debug_constexpr<RegNumD, RegNumA, RegNumB, RegNumC>();
+  // 2
+  // 4
+  // 2
+  // 2
 
   CUTE_STATIC_ASSERT_V(size(rA) == Int<RegNumA>{});
   CUTE_STATIC_ASSERT_V(size(rB) == Int<RegNumB>{});

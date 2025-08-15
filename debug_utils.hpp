@@ -53,3 +53,17 @@ void print_1d_layout(Layout layout) {
         printf(" ");
     }
 }
+
+// 编译时输出器 - 接受常量字符串
+template<int N, const char* Msg = nullptr>
+struct DebugMsg {
+    [[deprecated]]
+    static constexpr void print() {}
+};
+
+// 简洁的编译时输出宏
+#define COMPILE_TIME_PRINT(msg) \
+    do { \
+        static constexpr const char debug_str[] = msg; \
+        DebugMsg<__LINE__, debug_str>::print(); \
+    } while(0)
