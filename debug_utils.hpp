@@ -67,3 +67,4 @@ struct DebugMsg {
         static constexpr const char debug_str[] = msg; \
         DebugMsg<__LINE__, debug_str>::print(); \
     } while(0)
+    
