@@ -148,6 +148,8 @@ gemm(MMA_Atom<MMA>       const& mma,
      Tensor<TB, BLayout> const& B,
      Tensor<TC, CLayout> const& C)
 {
+  // -2
+  // debug_types<decltype(mma), bool, decltype(D), bool, decltype(A), bool, decltype(B), bool, decltype(C)>();
   return gemm(mma, D, A, B, C);
 }
 
@@ -196,7 +198,8 @@ gemm(MMA_Atom<MMA>       const& mma,
      Tensor<TB, BLayout> const& B,  // (V) Logical data
      Tensor<TC, CLayout> const& C)  // (V) Logical data
 {
-  COMPILE_TIME_PRINT("Hello from compile time!");
+  // -1
+  // COMPILE_TIME_PRINT("Hello from compile time!");
   // debug_types<decltype(mma), bool, decltype(D), bool, decltype(A), bool, decltype(B), bool, decltype(C)>();
   // mma SM80_16x8x16_F16F16F16F16_TN>
   // D (2, 2) : (1, 2)
@@ -288,11 +291,23 @@ gemm(MMA_Atom<MMA>       const& mma,
      Tensor<TB, BLayout> const& B,  // (V,N)   Logical data
      Tensor<TC, CLayout> const& C)  // (V,M,N) Logical data
 {
+  // debug_types<decltype(mma), bool, decltype(D), bool, decltype(A), bool, decltype(B), bool, decltype(C)>();
+  // mma: MMA_Atom<MMA_Traits<SM80_16x8x16_F16F16F16F16_TN>>
+  // D: Tensor<ArrayEngine<half, 128UL>, Layout<tuple<tuple<_2, _2>, _4, _8>, tuple<tuple<_1, _2>, _4, _16>>>
+  // A: Tensor<ViewEngine<half *>, Layout<tuple<tuple<_2, _2, _2>, _4>, tuple<tuple<_1, _2, _4>, _16>>>
+  // B: Tensor<ViewEngine<half *>, Layout<tuple<tuple<_2, _2>, tuple<_2, _4>>, tuple<tuple<_1, _2>, tuple<_8, _16>>>>
+  // C: Tensor<ArrayEngine<half, 128UL>, Layout<tuple<tuple<_2, _2>, _4, _8>, tuple<tuple<_1, _2>, _4, _16>>>
   CUTE_STATIC_ASSERT_V(size<1>(A) == size<1>(C));  // AM == CM
   CUTE_STATIC_ASSERT_V(size<1>(B) == size<2>(C));  // BN == CN
   CUTE_STATIC_ASSERT_V(size<0>(C) == size<0>(D) && size<1>(C) == size<1>(D) && size<2>(C) == size<2>(D));
   auto M = size<1>(A);
+  // 4
   auto N = size<1>(B);
+  // 8
+  // debug_constexpr<
+  //   decltype(size<0>(A))::value, -1, sizeof(typename TA::value_type), -1,
+  //   decltype(size<0>(B))::value, -1, sizeof(typename TB::value_type), -1>();
+  // 8, 2UL, 4, 2UL
   // REGISTER .reuse OPTIMIZATIONS
   // 64-bit traversal specialization -- serpentine path
   if constexpr (decltype(size<0>(A))::value * sizeof(typename TA::value_type) == 8 &&
@@ -389,6 +404,9 @@ gemm(MMA_Atom<MMA>       const& mma,
       CUTE_UNROLL
       for (int m = 0; m < M; ++m) {
         int ms = (n & 1) ? M-1-m : m;  // Serpentine coordinate
+        // int ms = m;                // also can use m directly with no optimization
+        // -3
+        // debug_types<decltype(mma)>();
         gemm(mma, D(_,ms,n), A(_,ms), B(_,n), C(_,ms,n));
       }
     }
