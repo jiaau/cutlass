@@ -39,7 +39,8 @@
 
 #include <cute/atom/mma_atom.hpp>
 
-#include "/data/solution-sdk/jiaao1/kernels-workspace/cutlass/debug_utils.hpp"
+// #include "/data/solution-sdk/jiaao1/kernels-workspace/cutlass/debug_utils.hpp"
+#include "/root/kernel-workspace/cutlass/debug_utils.hpp"
 
 /** The gemm algorithm takes four (or three) tensors and computes
  *   D = A * B + C
