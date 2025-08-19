@@ -191,6 +191,7 @@ struct array
     }
   }
 
+  // registers for storage
   element_type __elems_[N];
 };
 

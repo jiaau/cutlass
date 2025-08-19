@@ -35,8 +35,7 @@
 #include <cute/arch/mma.hpp>     // cute::UniversalFMA
 #include <cute/arch/util.hpp>    // cute::detail::explode
 
-// #include "/data/solution-sdk/jiaao1/kernels-workspace/cutlass/debug_utils.hpp"
-#include "/root/kernel-workspace/cutlass/debug_utils.hpp"
+#include "../../../debug_utils.hpp"
 
 namespace cute
 {

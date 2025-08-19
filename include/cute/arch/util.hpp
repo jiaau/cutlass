@@ -32,8 +32,7 @@
 
 #include <cute/config.hpp>
 #include <cute/numeric/integer_sequence.hpp>
-// #include "/data/solution-sdk/jiaao1/kernels-workspace/cutlass/debug_utils.hpp"
-#include "/root/kernel-workspace/cutlass/debug_utils.hpp"
+#include "../../../debug_utils.hpp"
 
 #if defined(__clang__) && defined(__CUDA__)
   //  __cvta_generic_to_shared was added in Clang 14: https://reviews.llvm.org/D111665

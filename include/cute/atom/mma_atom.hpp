@@ -31,6 +31,7 @@
 #pragma once
 #include "../../../debug_utils.hpp"
 #include "cute/layout.hpp"
+#include <cstdio>
 #include <cute/config.hpp>
 #include <cute/arch/mma.hpp>
 #include <cute/atom/mma_traits.hpp>
@@ -139,6 +140,11 @@ struct MMA_Atom<MMA_Traits<MMAOperation, Args...>>
     // The input/output type doesn't have to match the accumulator type
     //static_assert(std::is_same<ValTypeC, typename remove_cvref_t<CTensor>::value_type>::value, "Expecting ValTypeC type");
 
+    // print(ctensor);
+    // ((_2,_2),_4,_8):((_1,1024),4096,_16)
+    // debug_types<FrgTypeC>();
+    // cutlass::half_t
+
     // We'll never base the accumulator layout on the input tensor layout, so just return a FrgTypeC tensor
     return make_tensor<FrgTypeC>(shape(ctensor));
   }
@@ -231,11 +237,11 @@ struct TiledMMA : MMA_Atom
     : MMA_Atom(mma_atom),
       thr_layout_vmnk_(tiled_product(AtomThrID{}, thr_layout_mnk)) {
         // debug_types<AtomThrID, decltype(thr_layout_mnk), ThrLayoutVMNK>();
-        // AtomThrID: SM70_QuadPair (4, 1) : (1, 16)
-        // decltype(thr_layout_mnk): (2, 2, 1) : (2, 1, 0)
-        // ThrLayoutVMNK: ((4, 2), 2, 2, 1) : ((1, 16), 8, 4, 0)
-        // print_1d_layout(ThrLayoutVMNK{});
-        // 0 1 2 3 16 17 18 19 8 9 10 11 24 25 26 27 4 5 6 7 20 21 22 23 12 13 14 15 28 29 30 31
+        // AtomThrID: cute::Layout<cute::_32, cute::C<1>>
+        // decltype(thr_layout_mnk): (2, 2, 1) : (1, 2, 0)
+        // ThrLayoutVMNK: (32, 2, 2, 1) : (1, 32, 64, 0)
+        // debug_types<PermutationMNK>();
+        // cute::tuple<cute::C<32>, cute::C<32>, cute::C<16>>
       }
 
   CUTE_HOST_DEVICE constexpr auto
@@ -263,21 +269,21 @@ struct TiledMMA : MMA_Atom
 
     // CTA Layout:
     // print(ctensor.layout());
-    // (_16,_16):(16,_1)
+    // (_128,_128):(128,_1)
     CUTE_STATIC_ASSERT_V(rank(ctensor) >= Int<2>{});
     // Reorder the tensor for the TiledAtom
-    // print(ctensor);
-    // (_16,_16):(16,_1)
     auto t_tile = make_tile(permutation_mnk<0>(),
                             permutation_mnk<1>());
     // get TiledMMA size
     // print(t_tile);
-    // (_16,_16)
-    auto t_tensor = ctensor;                 // (PermM,PermN)
-    // auto t_tensor = logical_divide(ctensor, t_tile);                 // (PermM,PermN)
+    // (_32,_32)
+    // auto t_tensor = ctensor;                 // (PermM,PermN)
+    // print(ctensor);
+    // (_128,_128):(128,_1)
+    auto t_tensor = logical_divide(ctensor, t_tile);                 // (PermM,PermN)
     // t_tile 每个维度都会当作stride为1的layout
     // print(t_tensor);
-    // ((_16,_1),(_16,_1)):((16,_0),(_1,_0))
+    // ((_32,_4),(_32,_4)):((128,4096),(_1,_32))
     // 结果中第一维度为除数Layout的大小，根据其中的Layout数值从被除数中取值作为输出的结果。(A o B) 得到第一个 Tile
     // 通过重复"第一个Tile"来填满了Layout A中所有的数据 (A o B, A o C)
     
@@ -286,39 +292,23 @@ struct TiledMMA : MMA_Atom
     auto c_tile = make_tile(make_layout(size<0>(AtomShape_MNK{})),
     make_layout(size<1>(AtomShape_MNK{})));
     // print(c_tile);
-    // (_8:_1,_8:_1)
-    // 为什么要先执行一次 logical_divide?
+    // (_16:_1,_8:_1)
+    // Q Why logical_divide?
+    // A to permute the M-mode, N-mode, and K-mode individually, check https://github.com/NVIDIA/cutlass/discussions/1345
     auto c_tensor = zipped_divide(t_tensor, c_tile);                 // ((AtomM,AtomN),(RestM,RestN))
     // print(c_tensor);
-    // ((_8,_8),(_2,_2)):((16,_1),(128,_8))
+    // ((_16,_8),((_2,_4),_16)):((128,_1),((2048,4096),_8))
     // The mode-0 in the zipped_divide result is the Tile itself (of whatever rank the Tiler was) and mode-1 is the layout of those tiles. 
     // layout<0>(zipped_divide(t_tensor, c_tile)) == composition(t_tensor, c_tile)
     // print(layout<0>(c_tensor));
-    // (_8,_8):(16,_1)
+    // (_16,_8):(128,_1)
     // print(composition(t_tensor, c_tile));
-    // (_8,_8):(16,_1)
-
-    // print(logical_divide(t_tensor, c_tile));
-    // ((_8,_2),(_8,_2)):((16,128),(_1,_8)) ((AtomM, RestM), (AtomN, RestN))
-
-    // auto t_tensor_mode0 = make_layout(make_shape(Int<16>{}, Int<1>{}), make_stride(Int<16>{}, Int<0>{}));
-    // auto c_tile_mode0 = make_layout(make_shape(Int<8>{}), make_stride(Int<1>{}));
-    // auto c_tensor_mode0 = zipped_divide(t_tensor_mode0, c_tile_mode0);
-    // print(c_tensor_mode0);
-    // ((_8),_2):((_16),_128)
-
-    // auto t_tensor_mode1 = make_layout(make_shape(Int<16>{}, Int<1>{}), make_stride(Int<1>{}, Int<0>{}));
-    // auto c_tile_mode1 = make_layout(make_shape(Int<8>{}), make_stride(Int<1>{}));
-    // auto c_tensor_mode1 = zipped_divide(t_tensor_mode1, c_tile_mode1);
-    // print(c_tensor_mode1);
-    // print(append(c_tensor_mode0, c_tensor_mode1));
-    //((_8),_2,((_8),_2)):((_16),_128,((_1),_8))
+    // (_16,_8):(128,_1)
 
     // Transform the Atom mode from (M,K) to (Thr,Val)
     auto tv_tensor = c_tensor.compose(AtomLayoutC_TV{},_);           // ((ThrV,FrgV),(RestM,RestN))
 
     // Tile the tensor for the C-threads
-    // ThrLayoutVMNK: ((4, 2), 2, 2, 1) : ((1, 16), 8, 4, 0)
     // 在第 2 个 mode 进行 tile，tv_tensor 的第 2 个 mode 表示排列， thr_tile 的第 2 个 mode 也表示排列
     //   ((ThrV,FrgV),(RestM,RestN)) -> 
     //    ((ThrV, FrgV), ((ThrM, RestM), (ThrN, RestN))) -> 
@@ -422,14 +412,12 @@ struct TiledMMA : MMA_Atom
   {
     // Mapping from (thread idx) -> (logical thread id)
     auto thr_vmnk = thr_layout_vmnk_.get_flat_coord(thr_idx);
-    // 0 1 2 3 16 17 18 19 8 9 10 11 24 25 26 27 4 5 6 7 20 21 22 23 12 13 14 15 28 29 30 31
     // print(thr_vmnk);
-    // when thr_idx = 16, thr_vmnk = (4, 0, 0, 0)
-    // when thr_idx = 31, thr_vmnk = (7, 1, 1, 0)
+    // (31,0,0,_0)
     // debug_types<decltype(thr_layout_vmnk_)>();
-    // cute::Layout<cute::tuple<cute::tuple<cute::_4, cute::_2>, cute::_2, cute::_2, cute::C<1>>, cute::tuple<cute::tuple<cute::_1, cute::_16>, cute::C<8>, cute::_4, cute::C<0>>>
+    // cute::Layout<cute::tuple<cute::_32, cute::_2, cute::_2, cute::C<1>>, cute::tuple<cute::C<1>, cute::_32, cute::C<64>, cute::C<0>>>
     // debug_types<ThrLayoutVMNK>();
-    // cute::Layout<cute::tuple<cute::tuple<cute::_4, cute::_2>, cute::_2, cute::_2, cute::C<1>>, cute::tuple<cute::tuple<cute::_1, cute::_16>, cute::C<8>, cute::_4, cute::C<0>>>
+    // cute::Layout<cute::tuple<cute::_32, cute::_2, cute::_2, cute::C<1>>, cute::tuple<cute::C<1>, cute::_32, cute::C<64>, cute::C<0>>>
     return ThrMMA<TiledMMA, decltype(thr_vmnk)>{*this, thr_vmnk};
   }
 
@@ -453,6 +441,8 @@ struct TiledMMA : MMA_Atom
   permutation_mnk() const {
     static_assert(0 <= I && I < 3);
     auto perm = get<I>(PermutationMNK{});
+    // debug_types<decltype(perm)>();
+    // cute::_32
     return conditional_return(is_underscore<decltype(perm)>{}, size<I>(AtomShape_MNK{}) * size<I+1>(get_thr_layout_vmnk()), perm);
   }
 
@@ -584,23 +574,21 @@ struct ThrMMA : TiledMMA
   partition_C(CTensor&& ctensor) const
   {
     // print(ctensor.layout());
-    // (_16,_16):(16,_1)
+    // (_128,_128):(128,_1)
 
     auto thr_tensor = make_tensor(static_cast<CTensor&&>(ctensor).data(), this->thrfrg_C(ctensor.layout()));
     // print(thr_tensor);
     // ((ThrV, FrgV), ((ThrM, ThrN), (RestM, RestN))) -> ((ThrV,(ThrM,ThrN)),(FrgV,(RestM,RestN))) 
-    // (((_2,_2,_2),(_2,_2)),((_2,_2,_2),(_1,_1))):(((16,_2,64),(128,_8)),((_1,32,_4),(_0,_0)))
 
     // thread-wise partition
+    // print(thr_vmnk_);
+    // (31,0,0,_0)
     auto thr_vmn = make_coord(get<0>(thr_vmnk_), make_coord(get<1>(thr_vmnk_), get<2>(thr_vmnk_)));
     // mode0 表示是内层 shape = (4, 2) 里面的哪个元素，mode1 表示是外层 shape = (2, 2) 里的哪个 tile
     // print(thr_vmn);
-    // 16: (4, (0, 0))
-    // 31: (7, (1, 1))
+    // 31: (31,(0,0))
     // print(make_coord(_, repeat<rank<1,1>(thr_tensor)>(_)));
     // (_,(_,_))
-    // print(thr_tensor(thr_vmn, make_coord(_, repeat<rank<1,1>(thr_tensor)>(_))));
-    //  ((_2,_2,_2),_1,_1):((_1,32,_4),_0,_0)
     return thr_tensor(thr_vmn, make_coord(_, repeat<rank<1,1>(thr_tensor)>(_)));
   }
 

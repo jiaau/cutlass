@@ -52,6 +52,8 @@
 #include <cute/numeric/integral_constant.hpp>  // cute::is_integral
 #include <cute/util/type_traits.hpp>           // __CUTE_REQUIRES
 
+#include "../../debug_utils.hpp"
+
 namespace cute
 {
 
@@ -67,6 +69,7 @@ namespace cute
 //   iterator begin();
 // };
 
+// ArrayEngine -- owns a fixed-size array of elements
 template <class T, size_t N>
 struct ArrayEngine
 {
@@ -366,9 +369,14 @@ struct MakeTensor
         return Tensor{Engine{arg0}, make_layout(args...)};
       }
     } else {
+      // debug_types<T>();
+      // debug_types<decltype(arg0)>();
+      // const cute::tuple<cute::tuple<cute::_2, cute::_2>, cute::_4, cute::_8> &
       // Construct an owning Tensor
       static_assert((is_static<Arg0>::value && ... && is_static<Args>::value),
                     "Dynamic owning tensors not supported");
+      // debug_constexpr<sizeof...(Args) == 0 && is_layout<Arg0>::value>();
+      // false
       if constexpr (sizeof...(Args) == 0 && is_layout<Arg0>::value) {
         // Forward a Layout
         using Layout = Arg0;
@@ -398,6 +406,8 @@ auto
 make_tensor(Args const&... args)
 {
   static_assert((not has_dereference<Args>::value && ...), "Expected layout args... in make_tensor<T>(args...)");
+  // debug_types<decltype(args)...>();
+  // const cute::tuple<cute::tuple<cute::_2, cute::_2>, cute::_4, cute::_8> &
   return MakeTensor<T>{}(args...);
 }
 
