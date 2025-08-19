@@ -38,6 +38,8 @@
 #include <cute/atom/copy_traits.hpp>           // cute::Copy_Traits
 #include <cute/atom/mma_atom.hpp>              // cute::TiledMMA
 
+#include "../../../debug_utils.hpp"
+
 namespace cute
 {
 
@@ -142,15 +144,29 @@ struct TiledCopy : Copy_Atom
   using AtomLayoutSrc = typename Copy_Atom::ValLayoutSrc; // (thr,val) -> offset
   using AtomLayoutDst = typename Copy_Atom::ValLayoutDst; // (thr,val) -> offset
   using AtomLayoutRef = typename Copy_Atom::ValLayoutRef; // (thr,val) -> offset
-
+  // using RefLayout = SrcLayout;
+  // debug_types<AtomThrID, bool, AtomLayoutSrc, bool, AtomLayoutDst, bool, AtomLayoutRef>();
+  // AtomThrID: 1 : 0 
+  // AtomLayoutSrc: (1, 8) : (0, 1)
+  // AtomLayoutDst: (1, 8) : (0, 1)
+  // AtomLayoutRef: (1, 8) : (0, 1)
+  
   using AtomNumThr = decltype(size<0>(AtomLayoutRef{}));
   using AtomNumVal = decltype(size<1>(AtomLayoutRef{}));
-
+  // debug_types<AtomNumThr, AtomNumVal>();
+  // AtomNumThr: 1
+  // AtomNumVal: 8
+  
   // Layout information for the TiledCopy
   using Tiler_MN       = ShapeTiler_MN;
   using TiledLayout_TV = LayoutCopy_TV;
   using TiledNumThr    = decltype(size<0>(TiledLayout_TV{}));
   using TiledNumVal    = decltype(size<1>(TiledLayout_TV{}));
+  // debug_types<Tiler_MN, bool, TiledLayout_TV, bool, TiledNumThr, bool, TiledNumVal>();
+  // Tiler_MN: (32, 32)
+  // TiledLayout_TV: ((4, 32), 8) : ((256, 1), 32)
+  // TiledNumThr: 128
+  // TiledNumVal: 8
 
   CUTE_STATIC_ASSERT_V(TiledNumThr{} % AtomNumThr{} == Int<0>{}, "TiledCopy uses too few thrs for selected CopyAtom");
   CUTE_STATIC_ASSERT_V(TiledNumVal{} % AtomNumVal{} == Int<0>{}, "TiledCopy uses too few vals for selected CopyAtom");
@@ -206,6 +222,7 @@ struct TiledCopy : Copy_Atom
   auto
   tile2thrfrg(Tensor&& tensor, Ref2TrgLayout const& ref2trg)
   {
+    // TODO:
     // Take the thrs/vals that the atom is interested in
     // NOTE: Assumes the AtomNumThr are contiguous and identity within TiledThrID
     auto atom_layout_TV = zipped_divide(TiledLayout_TV{}, make_shape(AtomNumThr{}, AtomNumVal{}));
@@ -492,6 +509,12 @@ make_tiled_copy(Copy_Atom<Args...> const& copy_atom,
   print("layout_tv : "); print(layout_tv);  print("\n");
   print("tiler     : "); print(tiler);      print("\n");
 #endif
+
+// thr_layout: (_32,_4):(_4,_1)
+// val_layout: (_1,_8):(_0,_1)
+// layout_mn : ((_1,_32),(_8,_4)):((_0,_4),(_128,_1))
+// layout_tv : ((_4,_32),_8):((_256,_1),_32)
+// tiler     : (_32,_32)
 
   return make_tiled_copy_impl(copy_atom, layout_tv, tiler);
 }

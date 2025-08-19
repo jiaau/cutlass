@@ -64,6 +64,7 @@ struct Copy_Traits<SM80_CP_ASYNC_CACHEGLOBAL<S,D>>
   // Map from (dst-thr,dst-val) to bit
   using DstLayout = Layout<Shape<_1,Int<sizeof_bits<D>::value>>>;
 
+  // RefLayout comes here
   // Reference map from (thr,val) to bit
   using RefLayout = SrcLayout;
 };
