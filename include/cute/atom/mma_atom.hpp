@@ -144,7 +144,8 @@ struct MMA_Atom<MMA_Traits<MMAOperation, Args...>>
     // ((_2,_2),_4,_8):((_1,1024),4096,_16)
     // debug_types<FrgTypeC>();
     // cutlass::half_t
-
+    // print(shape(ctensor));
+    // ((_2,_2),_4,_8)
     // We'll never base the accumulator layout on the input tensor layout, so just return a FrgTypeC tensor
     return make_tensor<FrgTypeC>(shape(ctensor));
   }
