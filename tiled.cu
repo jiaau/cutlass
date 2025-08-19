@@ -55,5 +55,5 @@ int main() {
   // get MMA tile for each thread
   auto thr_mma = tiled_mma.get_slice(31);
   auto tCrD = thr_mma.partition_fragment_C(gD); // (MMA, MMA_M, MMA_N)
-  print(tCrD);
+  // print(tCrD);
 }
