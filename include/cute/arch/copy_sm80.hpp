@@ -78,6 +78,7 @@ struct SM80_CP_ASYNC_CACHEGLOBAL
 
   static_assert(sizeof(TS) == sizeof(TD), "cp.async requires sizeof(src_value_type) == sizeof(dst_value_type)");
   static_assert(sizeof(TS) == 16, "cp.async sizeof(TS) is not supported");
+  // 16B = 128bit
 
   CUTE_HOST_DEVICE static void
   copy(TS const& gmem_src,

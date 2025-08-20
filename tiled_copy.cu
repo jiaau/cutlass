@@ -3,6 +3,7 @@
 #include "cute/util/print.hpp"
 #include "cutlass/layout/matrix.h"
 #include <cuda.h>
+#include "debug_utils.hpp"
 
 using namespace cute;
 
@@ -15,7 +16,16 @@ int main() {
 
   using g2s_copy_op = SM80_CP_ASYNC_CACHEGLOBAL<cute::uint128_t>;
   using g2s_copy_traits = Copy_Traits<g2s_copy_op>;
+  // debug_types<g2s_copy_traits::ThrID, g2s_copy_traits::SrcLayout>();
+  // ThrID: 1 : 0
+  // Map from (src-thr,src-val) to bit
+  // SrcLayout: (1, 128) : (0, 1)
+
   using g2s_copy_atom = Copy_Atom<g2s_copy_traits, T>;
+  // debug_types<g2s_copy_atom::ValType>();
+  // half
+  // debug_types<g2s_copy_atom::ValLayoutSrc>();
+  // (1, 8) : (0, 1)
 
   using G2SCopyA =
       decltype(make_tiled_copy(g2s_copy_atom{},
