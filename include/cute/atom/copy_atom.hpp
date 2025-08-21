@@ -39,6 +39,7 @@
 #include <cute/atom/mma_atom.hpp>              // cute::TiledMMA
 
 #include "../../../debug_utils.hpp"
+#include "cute/layout.hpp"
 
 namespace cute
 {
@@ -188,6 +189,11 @@ struct TiledCopy : Copy_Atom
   {
     CUTE_STATIC_ASSERT_V(rank(stensor) >= rank(Tiler_MN{}), "Rank of tensor to be partitioned too small.");
 
+    // print(AtomLayoutSrc{});
+    // (1, 8) : (0, 1)
+    // print(right_inverse(AtomLayoutRef{}.compose(AtomLayoutSrc{})));
+    // _8:_1
+
     // Tile the stensor and compute the (src-thr, src-val) -> (ref-thr, ref-val) layout
     return tile2thrfrg(zipped_divide(stensor,Tiler_MN{}), right_inverse(AtomLayoutRef{}).compose(AtomLayoutSrc{}));
   }
@@ -222,26 +228,67 @@ struct TiledCopy : Copy_Atom
   auto
   tile2thrfrg(Tensor&& tensor, Ref2TrgLayout const& ref2trg)
   {
-    // TODO:
     // Take the thrs/vals that the atom is interested in
     // NOTE: Assumes the AtomNumThr are contiguous and identity within TiledThrID
     auto atom_layout_TV = zipped_divide(TiledLayout_TV{}, make_shape(AtomNumThr{}, AtomNumVal{}));
     // ((atom_tid,atom_val),(rest_tid,rest_val)) -> (m,n)
 
+    // print(TiledLayout_TV{});
+    // ((_4,_32),_8):((_256,_1),_32)
+    // print(atom_layout_TV);
+    // ((_1,_8),((_4,_32),_1)):((_0,_32),((_256,_1),_0))
+
     // Transform to the trg layout
     auto trg_layout_TV = atom_layout_TV.compose(ref2trg, _);
     // ((trg_tid,trg_val),(rest_tid,rest_val)) -> (m,n)
+
+    // print(trg_layout_TV);
+    // ((_1,_8),((_4,_32),_1)):((_0,_32),((_256,_1),_0))
 
     // Transform the thrs mode from thrid to thr_idx
     // NOTE: Assumes the AtomNumThr are contiguous and identity within TiledThrID
     auto thrval2mn = coalesce(zip(trg_layout_TV), Shape<_1,Shape<_1,_1>>{});
     // ((trg_tid,rest_tid),(trg_val,rest_val)) -> (m,n)
+    // auto thrval2mn = zip(trg_layout_TV);
+    // due to post-conditions of coalesce: @a result(i) == @a layout(i)
+    //  use it or not, the answer is the same
+    // So the most important thing in this step is to use zip to exchange mode
 
+    // 1. use zip to swap modes
+    // print(zip(trg_layout_TV));
+    // ((_1,(_4,_32)),(_8,_1)):((_0,(_256,_1)),(_32,_0))
+    // 2. use coalesce to simplify the layout
+    // by mode coalesce
+    // auto a = Layout<
+    //     Shape<Shape<  Shape<_1>,Shape <_4,_32>>, Shape<_8,_1>>,
+    //     Stride<Stride<Stride<_0>,Stride<_256,_1>>, Stride<_32, _0>>
+    // >{};
+    // print(rank(a));
+    // 2.1
+    // print(layout<0>(a));
+    // ((_1),(_4,_32)):((_0),(_256,_1))
+    // print(coalesce(layout<0>(a), _1{}));
+    // (_4,_32):(_256,_1)
+    // 2.2
+    // print(layout<1>(a));
+    // ((_8,_1),(_32,_0))
+    // print(coalesce(layout<1>(a), Shape<_1,_1>{}));
+    // (_8,_1):(_32,_0)
+    // 2.3
+    // print(thrval2mn);
+    // ((_4,_32),(_8,_1)):((_256,_1),(_32,_0))
     /// ==================
 
     // Transform the tile mode
     auto tv_tensor = tensor.compose(thrval2mn, _);
     // ((thrid,val),(RestM,RestN,...))
+    // print(tensor);
+    // ((_32,_32),(_4,_4)):((128,_1),(4096,_32))
+    // print(composition(Layout<Shape<_32, _32>, Stride<_128, _1>>{}, thrval2mn));
+    // ((_4,_32),(_8,_1)):((_8,_128),(_1,_0))
+    // print(tv_tensor);
+    // (((_4,_32),(_8,_1)),(_4,_4)):(((_8,128),(_1,_0)),(4096,_32))
+    // NOTE: M means Big Matrix, m means tiler matrix
 
     // Unfold and return
     return tv_tensor(make_coord(_,_), _);
@@ -496,8 +543,10 @@ make_tiled_copy(Copy_Atom<Args...> const& copy_atom,
   // Take the raked_products to compute the Layout_MN
   // (M,N) -> (thr_idx, val_idx)
   auto layout_mn = raked_product(thr_layout, val_layout);
+  // print_latex(layout_mn);
   // (thr_idx, val_idx) -> (M,N)
   auto layout_tv = right_inverse(layout_mn).with_shape(make_shape(size(thr_layout), size(val_layout)));
+  // print_latex(layout_tv);
   // Tiler for extracting relevant elements
   // (M,N) -> tensor coord
   auto tiler = product_each(shape(layout_mn));
